@@ -25,9 +25,11 @@ plt.rcParams['axes.unicode_minus'] = False
 os.chdir(r'/Users/hongzk/Documents/data_files')
 orgData = pd.read_hdf('allData.hdf')
 #orgData = orgData.sample(30000)
-data = orgData.sample(30000)
+data = orgData[orgData["is_suspend_days_gt60"]==1].sample(3000)
+data = data.append(orgData[orgData["is_suspend_days_gt60"]==0].sample(27000))
+#data = orgData.sample(30000)
 
-data.info()
+
 colTypes = pd.DataFrame(data.dtypes).reset_index()
 colTypes.columns = ['columns', 'dtype']
 colTypes.groupby(['dtype']).count()
@@ -253,10 +255,15 @@ plt.show()
 
 # 网格搜索
 from sklearn.model_selection import GridSearchCV
-parameters = {'gamma': [0.001, 0.01, 0.1, 1], 'C':[0.001, 0.01, 0.1, 1,10]}
-gs = GridSearchCV(svc, parameters, refit = True, cv = 5, verbose = 1, n_jobs = -1)
+parameters = {'solver': ['newton-cg', 'lbfgs', 'sag'],
+              'penalty':['l2', 'none']}
+gs = GridSearchCV(lr, parameters, refit = True, cv = 5, verbose = 1, n_jobs = -1)
 gs.fit(X_train, y_train)
 print('最优参数: ',gs.best_params_)
 print('最佳性能: ', gs.best_score_)
 y_predict = gs.predict(X_test)
 modEffect(y_test, y_predict)
+
+
+
+np.sum(y_predict)/len(X_test)

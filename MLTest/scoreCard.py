@@ -163,11 +163,23 @@ for i in model_vars:
         X_train.drop(i, axis=1, inplace=True)
 
 
+def adjust_bin(df, y, bin_cols):
+    for i in bin_cols:
+        cust_stats = pd.crosstab(df[i], y).reset_index()
+        for j in range(cust_stats.shape[0]):
+            if cust_stats.loc[j, 1]==0:
+                print(i)
+                print(cust_stats.loc[j, i])
+adjust_bin(X_train, y_train, X_train.columns)
+
+
+
 def map_woe(data, y, bin_cols):
     #计算woe、iv
     bad_weight, good_weight = 1, 1
     qushi = "up"
     colNames = []
+    woeMapList = []
     for i in bin_cols:
         trans_df = pd.crosstab(data[i], y)
         trans_df = trans_df.rename(
@@ -191,15 +203,31 @@ def map_woe(data, y, bin_cols):
         trans_df['woe'] = round(trans_df['woe'], 4)
         trans_df = trans_df.reset_index()
         mapDict = dict(zip(trans_df[i], trans_df['woe']))
+        woeMapList.append(mapDict)
         colName = i.replace("_bin", "_woe")
         colNames.append(colName)
         data[colName] = data[i].map(mapDict) 
-    return data[colNames]
+    return data[colNames], woeMapList
 
-X_train = map_woe(X_train, y_train, X_train.columns)
+X_train_bak = X_train.copy()
+X_train = X_train_bak.copy()
+X_train, woeMapList = map_woe(X_train, y_train, X_train.columns)
+for i in X_train.columns:
+    print(X_train[i].unique())
+
 
 lr = LogisticRegression()
 lr.fit(X_train, y_train)
+
+for i in range(len(X_train.columns)):
+    colName = X_train.columns[i].replace("_woe", "")
+    bins = binsDict[colName]
+    X_test[colName+"_bin"] = X_test[colName].apply(map_bin, bins=bins)
+    X_test[colName+"_woe"] = X_test[colName+"_bin"].map(woeMapList[i])
+
+X_test_bak = X_test.copy()
+X_test = X_test[[i for i in X_test.columns if i.endswith("_woe")]]
+y_predict = lr.predict(X_test)
 
 
 def modEffect(y_test, y_predict):
